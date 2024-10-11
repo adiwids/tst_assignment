@@ -1,0 +1,53 @@
+networks:
+  tstnet:
+volumes:
+  pgdata:
+  redisdata:
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tstdb
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - tstnet
+    environment:
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+  redis:
+    image: redis:latest
+    container_name: tstredis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/root/redis
+  mail:
+    image: dockage/mailcatcher
+    container_name: tstmailserv
+    restart: always
+    ports:
+      - '1025:1025'
+      - '1080:1080'
+  app:
+    container_name: tstapp
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db
+      - redis
+    links:
+      - db
+      - redis
+      - mail
+    networks:
+      - tstnet
+    environment:
+      - RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+      - DATABASE_URL=postgresql://postgres:${DATABASE_PASSWORD}@tstdb:5432/tst_assignment_development
